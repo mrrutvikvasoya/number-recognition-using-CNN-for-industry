@@ -1,38 +1,52 @@
 # Vision Crafters Seal OCR
 
-This project reads a seven-digit code stamped on an industrial seal while ignoring nearby text and hardware. It combines OpenCV localization with a compact convolutional neural network (CNN) digit classifier.
+An offline OCR system for reading the seven-digit numeric code stamped on an industrial seal. It uses OpenCV to locate the digit row and a compact convolutional neural network (CNN) to recognize the seven digits while avoiding distractor text such as `TESCO`.
 
-![Example seal prediction](assets/example_prediction.jpg)
+![Detected seal code with prediction](assets/example_prediction.jpg)
 
-## How it works
+## Pipeline
 
-1. Read one PNG seal image in grayscale.
-2. Locate a row of seven digit-shaped components with thresholding and geometric checks.
-3. Deskew, normalize, and resize each digit to 64 × 64 pixels.
-4. Classify all seven crops together with the CNN.
-5. Write `filename;number` to the result CSV, then process the next image.
+1. Read one PNG image in grayscale.
+2. Find seven aligned digit-shaped components using thresholding and geometric checks.
+3. Deskew, normalize, and resize each digit crop to 64 × 64 pixels.
+4. Predict the seven crops together with the CNN.
+5. Save the code and continue with the next image.
 
-The trained model is loaded once. Seal images are processed sequentially, while the seven digits from the current image are inferred together. Distractor text such as `TESCO` is rejected by the row geometry used during localization.
+The model is loaded once when the program starts. Full seal images are processed one at a time in sorted filename order.
 
-## Results
+## Local results
 
-| Evaluation | Exact codes | Result |
+| Evaluation split | Exact codes | Accuracy |
 | --- | ---: | ---: |
-| Validation images | 1,414 / 1,414 | 100.0000% |
-| Local labelled test images | 1,413 / 1,414 | 99.9293% |
+| Validation | 1,414 / 1,414 | 100.0000% |
+| Labelled local test | 1,413 / 1,414 | 99.9293% |
 
-The test run produced 1,414 unique, correctly formatted rows with no missing images. These results describe the supplied local splits and do not guarantee the score on unseen competition data.
+The complete test run produced 1,414 unique, correctly formatted rows with no missing images. These measurements apply to the supplied local dataset and do not guarantee performance on different or hidden images.
 
-## Run the verified submission
+## Requirements
 
-Python 3.12 and the packages in `backups/submission/requirements.txt` are required:
+- Python 3.12
+- NumPy 1.26.4
+- OpenCV 4.11.0
+- PyTorch 2.10.0
+
+Install the pinned dependencies:
 
 ```powershell
-python -m pip install -r backups/submission/requirements.txt
-python -B backups/submission/main.py --input-dir PATH_TO_PNG_IMAGES --output-dir results --device auto
+python -m pip install -r requirements.txt
 ```
 
-The command creates `results/vision_crafters.csv`:
+For GPU inference, install a PyTorch build compatible with the computer's NVIDIA driver. The program automatically falls back to CPU when CUDA is unavailable.
+
+## Run
+
+Open PowerShell in the repository directory and run:
+
+```powershell
+python -B main.py --input-dir PATH_TO_PNG_IMAGES --output-dir results --device auto
+```
+
+The program creates `results/vision_crafters.csv`:
 
 ```text
 filename;number
@@ -40,32 +54,26 @@ filename;number
 00001.png;1581456
 ```
 
-Use a new output directory for every run because the program refuses to overwrite an existing result. `--device auto` uses CUDA when it is available and otherwise uses the CPU.
+Use a new output directory for each run. The program refuses to overwrite an existing result CSV.
 
 ## Failure handling
 
-If normal localization cannot find seven digits, the program tries a fixed seven-cell layout with both crop polarities and keeps the more confident CNN result. If decoding or fallback inference also fails, it writes the deterministic value `0000000`, logs the error, and continues. This guarantees one CSV row per uniquely named PNG; the fallback value is not claimed to be an accurate reading of an unreadable image.
+If normal localization cannot find seven digits, the program tries a fixed seven-cell layout with both crop polarities and keeps the more confident CNN result. If an image cannot be decoded or fallback inference also fails, it logs the failure, writes `0000000`, and continues. This guarantees one output row per uniquely named PNG, although the fallback value cannot be considered an accurate reading of an unreadable image.
 
-## Repository structure
+## Repository contents
 
 | Path | Purpose |
 | --- | --- |
-| `backups/submission/` | Verified, self-contained baseline submission |
-| `submission/` | Current submission candidate with optional residual-ensemble support |
-| `common/` | Localization, preprocessing, augmentation, and file handling |
-| `cnn/` | CNN architectures, training, inference, metrics, and checkpoints |
-| `audit/` | Dataset preparation, evaluation, review galleries, and tests |
-| `TRAINING.md` | Training, validation, ensemble, and promotion commands |
-| `reports/` | Dataset and localization audit evidence |
+| `main.py` | Command-line entry point |
+| `common/` | OpenCV localization and digit preprocessing |
+| `cnn/` | CNN architecture and inference code |
+| `weights/best.pt` | Trained baseline checkpoint |
+| `assets/` | README example image |
+| `requirements.txt` | Pinned runtime dependencies |
+| `RUN.md` | Short competition run guide |
 
-The current submission can automatically ensemble the baseline with a trained residual checkpoint named `submission/weights/residual.pt`. That residual checkpoint has not been fully trained or promoted. The verified backup therefore remains the recommended competition submission.
+No training dataset, labels, test-specific correction, network API, OCR service, or language model is required at runtime.
 
-## Verification
+## License
 
-The backup submission completed all 1,414 local test images. Separate runtime checks covered a normal image, a valid blank image that forced localization fallback, and an unreadable PNG; all produced rows and the process exited successfully. The project test suite contains 35 passing tests. Near-duplicate seals and hidden-test performance remain unproven.
-
-## Data and training
-
-Training uses 9,901 leakage-filtered seal records, producing 69,307 digit crops. Validation contains 1,414 seals and remains unaugmented. Training augmentation includes clean samples, small affine changes, gamma, contrast, noise, defocus, motion blur, mild morphology, uneven illumination, and fading. Labels come from the supplied seal CSV and are assigned to crops from left to right.
-
-The dataset is not redistributed by this README. Place it according to the paths described in `TRAINING.md` before running development or training commands.
+Provided for the BTHA Summer School 2026 competition.
