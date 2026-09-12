@@ -70,7 +70,6 @@ If normal localization cannot find seven digits, the program tries a fixed seven
 | `weights/best.pt` | Trained baseline checkpoint |
 | `assets/` | README example image |
 | `requirements.txt` | Pinned runtime dependencies |
-| `RUN.md` | Short competition run guide |
 
 No training dataset, labels, test-specific correction, network API, OCR service, or language model is required at runtime.
 
